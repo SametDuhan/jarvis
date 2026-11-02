@@ -22,6 +22,41 @@ import { z } from 'zod'
  */
 
 /**
+ * Hazır görünümler. Tek çağrıda tema + reaktör: "kırmızı alarm", "gizli mod"
+ * gibi isteklerde model beş araç yerine bir araç çağırır.
+ */
+const PRESETS = {
+  alert: {
+    note: 'red alert — danger or a serious fault',
+    patch: { accent: '#ff2d2d', background: '#150808', reactor: { color: '#ff2d2d', intensity: 1.6, spin: 2 } },
+    effect: 'flash',
+  },
+  stealth: {
+    note: 'dim, low-key, nearly dark',
+    patch: { accent: '#3a5f7a', background: '#05080c', reactor: { color: '#3a5f7a', intensity: 0.5, scale: 0.7, spin: 0.3 } },
+  },
+  gold: {
+    note: 'the classic gold and red suit palette',
+    patch: { accent: '#ffb627', background: '#120a06', reactor: { color: '#ffb627', intensity: 1.2, style: 'ring' } },
+  },
+  ice: {
+    note: 'cold white-blue, calm',
+    patch: { accent: '#9fe8ff', background: '#060d14', reactor: { color: '#9fe8ff', intensity: 1, style: 'sphere' } },
+  },
+  matrix: {
+    note: 'green terminal look',
+    patch: { accent: '#2bff6a', background: '#030a05', reactor: { color: '#2bff6a', intensity: 1, style: 'wire', spin: 1.5 } },
+  },
+}
+
+const PRESET_DESCRIPTION = `Apply a ready-made look in one call: theme and reactor together.
+
+Presets: ${Object.entries(PRESETS).map(([k, v]) => `${k} (${v.note})`).join('; ')}.
+
+Prefer this over several ui_theme and ui_reactor calls when one of these fits.
+Undo with ui_reset.`
+
+/**
  * Numbers and booleans arrive however the model felt like writing them — '0.5'
  * as a string, 1 for true, null for "leave it". A turn that fails because a
  * scale was quoted is a turn the user watched break, so nothing here rejects:
@@ -482,6 +517,19 @@ export function uiServer(emit) {
           const what = args.what ?? 'all'
           emit('screen', { what })
           return ok('Cleared.')
+        },
+      ),
+
+      tool(
+        'ui_preset',
+        PRESET_DESCRIPTION,
+        { name: z.enum(Object.keys(PRESETS)).describe('Which look to apply.') },
+        async ({ name }) => {
+          const preset = PRESETS[name]
+          if (!preset) return refuse(`Unknown preset. Choose from: ${Object.keys(PRESETS).join(', ')}.`)
+          emit('patch', preset.patch)
+          if (preset.effect) emit('effect', { kind: preset.effect })
+          return ok(`Preset ${name} applied.`)
         },
       ),
 
