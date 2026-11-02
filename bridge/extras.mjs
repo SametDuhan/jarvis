@@ -18,6 +18,20 @@ import { join } from 'node:path'
  * Desenlerde `*` joker olarak çalışır: "mcp__gmail__send*".
  * Dosya yoksa ya da bozuksa hiçbir şey değişmez.
  */
+/**
+ * Depo kökündeki .env.bridge.local dosyasını ortama yükler (zaten tanımlı
+ * değişkenlere dokunmaz). Her başlatmada `source` etmek gerekmesin; yoksa
+ * ElevenLabs anahtarı ve ses kimliği sessizce eksik kalıp varsayılan İngiliz
+ * sesine düşüyordu.
+ */
+try {
+  const envFile = new URL('../.env.bridge.local', import.meta.url)
+  for (const line of readFileSync(envFile, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/)
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+  }
+} catch {}
+
 const CONFIG_PATH = process.env.JARVIS_CONFIG ?? join(homedir(), '.jarvis', 'config.json')
 
 function load() {

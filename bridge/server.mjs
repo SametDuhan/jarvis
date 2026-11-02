@@ -873,6 +873,8 @@ const handleRequest = async (req, res) => {
             // Flash is the low-latency model — a conversation needs speed more
             // than it needs the last few percent of quality.
             model_id: 'eleven_flash_v2_5',
+            // Dili sabitle; yoksa model metinden tahmin eder ve yabancı aksan kayabilir.
+            ...(LANG !== 'en' ? { language_code: LANG } : {}),
             voice_settings: {
               stability: 0.4,
               similarity_boost: 0.75,
@@ -954,6 +956,7 @@ const handleRequest = async (req, res) => {
             : 'webm'
       const form = new FormData()
       form.append('model_id', 'scribe_v1')
+      if (LANG !== 'en') form.append('language_code', LANG)
       form.append(
         'file',
         new Blob([Buffer.concat(chunks)], { type }),
@@ -1019,7 +1022,7 @@ server.listen(PORT)
 
 console.log(`[jarvis] bridge listening on ws://localhost:${PORT}`)
 console.log(
-  `[jarvis] speech ${elevenKey() ? 'via ElevenLabs (key from MCP config)' : 'using browser fallback voice'}`,
+  `[jarvis] speech ${elevenKey() ? `via ElevenLabs · voice ${VOICE_ID} · lang ${LANG}` : 'using browser fallback voice'}`,
 )
 console.log(`[jarvis] model ${MODEL} · effort ${EFFORT}`)
 console.log(

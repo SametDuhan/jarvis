@@ -28,3 +28,8 @@ Orijinal projenin üstüne eklenen özellikler. Hepsi isteğe bağlıdır; hiçb
 set -a; source .env.bridge.local; set +a
 JARVIS_LANG=tr JARVIS_BRIEFING=1 npm start
 ```
+
+## Ses sorun giderme
+- Bridge, depo kökündeki `.env.bridge.local` dosyasını kendiliğinden yükler (`ELEVENLABS_API_KEY`, `JARVIS_VOICE_ID`).
+- `JARVIS_LANG=tr` iken ElevenLabs TTS ve Scribe isteklerine `language_code` eklenir.
+- ElevenLabs ücretsiz planı kütüphane seslerini API'den kullanamaz (`402 paid_plan_required`). Bu durumda ses tarayıcının kendi sesine düşer; Türkçe sesi yoksa İngilizce aksanla okur. Çözüm: ücretli plan, ya da Türkçe sesi olan Edge (Microsoft Ahmet/Emel Online).
