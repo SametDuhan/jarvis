@@ -49,6 +49,11 @@ export function watchPanels(fn: (panel: Panel) => void): void {
   if (usingBridge) bridge.watchPanels(fn)
 }
 
+/** Bridge-initiated turns (reminders, briefing). No-op on the direct path. */
+export function watchNotify(fn: (text: string) => void): void {
+  if (usingBridge) bridge.watchNotify(fn)
+}
+
 /** Blades — the big surface — arrive the same way, from the `blade` tool. Like
  *  panels and the ui_* commands, this is a bridge capability: the direct path
  *  has no channel for a server to volunteer anything mid-turn. */

@@ -1,0 +1,11 @@
+{
+  "lang": "tr",
+  "mcpServers": {
+    "ornek": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"] }
+  },
+  "policy": {
+    "allow": ["mcp__ornek__read*"],
+    "confirm": ["mcp__gmail__send*"],
+    "deny": ["mcp__ornek__delete*"]
+  }
+}

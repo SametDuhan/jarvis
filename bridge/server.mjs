@@ -27,6 +27,9 @@ import { readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { openRemote, proxyError, vetTarget, PROXY_UA } from './net.mjs'
 import { probeUrl, renderPage } from './page.mjs'
+import { EXTRA_MCP, LANG, policyFor } from './extras.mjs'
+import { memoryServer, memoryPrompt } from './memory.mjs'
+import { proactiveServer, claimBriefing, BRIEFING_PROMPT } from './proactive.mjs'
 
 const PORT = Number(process.env.JARVIS_BRIDGE_PORT ?? 8787)
 
@@ -165,11 +168,12 @@ function configuredServers() {
     )
     return {
       ...(cfg.mcpServers ?? {}),
+      ...EXTRA_MCP,
       // Servers scoped to the home directory apply too, since that's our cwd.
       ...(cfg.projects?.[homedir()]?.mcpServers ?? {}),
     }
   } catch {
-    return {}
+    return { ...EXTRA_MCP }
   }
 }
 
@@ -253,6 +257,9 @@ const VETO_EXEMPT = new Set([
 ])
 
 function decideTool(name) {
+  // Kullanıcı politikası (allow/deny/confirm) yerleşik kuralların önüne geçer.
+  const policy = policyFor(name)
+  if (policy) return policy.allow
   if (READ_ONLY_BUILTINS.has(name)) return true
   if (WRITE_BUILTINS.has(name)) return ALLOW_WRITES
 
@@ -263,7 +270,12 @@ function decideTool(name) {
     // without them JARVIS has no display at all. They also have to be named
     // here rather than left to the verb rules below, which read `ui_theme` as
     // a write and would hold the whole surface back behind ALLOW_WRITES.
-    if (server === 'jarvis' || server === 'jarvis_ui') return true
+    if (
+      server === 'jarvis' ||
+      server === 'jarvis_ui' ||
+      server === 'jarvis_memory' ||
+      server === 'jarvis_proactive'
+    ) return true
 
     // The browser server gates itself, at construction: chromeServer() only
     // builds the acting tools — click, type, form input, close tab — when
@@ -288,6 +300,11 @@ function decideTool(name) {
     return READ_VERB.test(tool) ? true : ALLOW_WRITES
   }
   return ALLOW_WRITES
+}
+
+function languageNote() {
+  if (LANG !== 'tr') return ''
+  return '\n\nLANGUAGE. The user speaks Turkish. Reply in natural Turkish, in the same terse register. "Sir" becomes "efendim", placed by the same rules. Tool names and code stay as they are.\n'
 }
 
 const SYSTEM_PROMPT = `You are JARVIS. You are speaking out loud to one person.
@@ -684,7 +701,7 @@ const handleRequest = async (req, res) => {
     // student with nothing configured still has a working assistant.
     const eleven = Boolean(elevenKey())
     res.writeHead(200, { ...cors, 'content-type': 'application/json' })
-    return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven }))
+    return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven, lang: LANG }))
   }
 
   // Serve local image files to the page. Screenshots and generated art land on
@@ -1190,6 +1207,11 @@ wss.on('connection', (socket) => {
     if (!failed) sendTurn({ type: 'tool', name })
   }
 
+  const proactive = proactiveServer((text) => send({ type: 'notify', text }))
+  if (process.env.JARVIS_BRIEFING === '1' && claimBriefing()) {
+    setTimeout(() => send({ type: 'notify', text: BRIEFING_PROMPT }), 20_000)
+  }
+
   const session = query({
     prompt: userMessages(),
     options: {
@@ -1214,12 +1236,14 @@ wss.on('connection', (socket) => {
         jarvis_chrome: chromeServer({ allowWrites: ALLOW_WRITES }),
         // The camera, which unlike everything else here has to ask and wait.
         jarvis_eyes: visionServer(ask),
+        jarvis_memory: memoryServer(),
+        jarvis_proactive: proactive.server,
       },
       // A plain system prompt, not the claude_code preset. The preset is
       // tuned for a coding agent — verbose, file-oriented, and a large chunk
       // of input tokens on every turn. Replacing it makes the persona stick,
       // keeps answers short enough to speak, and cuts cost per turn.
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT + languageNote() + memoryPrompt(),
       // Run from the home directory so project-scoped MCP servers don't shadow
       // the global ones, and so file tools have a sane root.
       cwd: homedir(),
@@ -1457,6 +1481,7 @@ wss.on('connection', (socket) => {
   socket.on('close', () => {
     console.log('[jarvis] client disconnected')
     closed = true
+    proactive.cancel()
     deliver?.(null)
     session.close?.()
   })

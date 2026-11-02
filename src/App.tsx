@@ -22,6 +22,7 @@ import {
   watchServers,
   watchPanels,
   watchBlades,
+  watchNotify,
   watchCapture,
   watchUi,
   watchConnection,
@@ -364,6 +365,11 @@ export default function App() {
     watchServers((servers) => store.getState().setConnected(servers))
     watchPanels((panel) => store.getState().pushPanel(panel))
     watchBlades((blade) => store.getState().pushBlade(blade))
+    // Hatırlatıcı ve brifing: yalnızca JARVIS boştayken konuşur, kullanıcıyı bölmez.
+    watchNotify((text) => {
+      const phase = store.getState().phase
+      if (phase === 'dormant' || phase === 'listening') void respond(text)
+    })
 
     /**
      * JARVIS asking to see something.

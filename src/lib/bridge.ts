@@ -56,6 +56,12 @@ export function watchServers(fn: (s: string[]) => void) {
 
 /** Panels arrive out of band — they're pushed while a turn is in flight,
  *  not returned by it. */
+/** Köprünün kendiliğinden başlattığı konuşmalar: hatırlatıcı, sabah brifingi. */
+let onNotify: ((text: string) => void) | null = null
+export function watchNotify(fn: (text: string) => void) {
+  onNotify = fn
+}
+
 let onPanel: ((panel: Panel) => void) | null = null
 export function watchPanels(fn: (panel: Panel) => void) {
   onPanel = fn
@@ -177,6 +183,8 @@ function dispatch(ws: WebSocket) {
         .filter(Boolean)
       onServers?.(servers)
       firstReady.resolve()
+    } else if (msg.type === 'notify' && msg.text) {
+      onNotify?.(msg.text)
     } else if (msg.type === 'panel' && msg.panel) {
       onPanel?.(msg.panel)
     } else if (msg.type === 'blade' && msg.blade) {
